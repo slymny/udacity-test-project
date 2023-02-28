@@ -3,6 +3,7 @@ package com.cat.application;
 import com.cat.data.PretendDatabaseSecurityRepositoryImpl;
 import com.cat.data.SecurityRepository;
 import com.cat.image.service.FakeImageService;
+import com.cat.image.service.ImageService;
 import com.cat.security.service.SecurityService;
 import net.miginfocom.swing.MigLayout;
 
@@ -10,14 +11,13 @@ import javax.swing.*;
 
 /**
  * This is the primary JFrame for the application that contains all the top-level JPanels.
- *
  * We're not using any dependency injection framework, so this class also handles constructing
  * all our dependencies and providing them to other classes as necessary.
  */
 public class CatpointGui extends JFrame {
-    private SecurityRepository securityRepository = new PretendDatabaseSecurityRepositoryImpl();
-    private FakeImageService imageService = new FakeImageService();
-    private SecurityService securityService = new SecurityService(securityRepository, imageService);
+    private final SecurityRepository securityRepository = new PretendDatabaseSecurityRepositoryImpl();
+    private final ImageService imageService = new FakeImageService();
+    private final SecurityService securityService = new SecurityService(securityRepository, imageService);
     private DisplayPanel displayPanel = new DisplayPanel(securityService);
     private ControlPanel controlPanel = new ControlPanel(securityService);
     private SensorPanel sensorPanel = new SensorPanel(securityService);

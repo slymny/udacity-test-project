@@ -4,7 +4,7 @@ import com.cat.data.AlarmStatus;
 import com.cat.data.ArmingStatus;
 import com.cat.data.SecurityRepository;
 import com.cat.data.Sensor;
-import com.cat.image.service.FakeImageService;
+import com.cat.image.service.ImageService;
 
 import java.awt.image.BufferedImage;
 import java.util.HashSet;
@@ -13,17 +13,16 @@ import java.util.Set;
 /**
  * Service that receives information about changes to the security system. Responsible for
  * forwarding updates to the repository and making any decisions about changing the system state.
- *
  * This is the class that should contain most of the business logic for our system, and it is the
  * class you will be writing unit tests for.
  */
 public class SecurityService {
 
-    private FakeImageService imageService;
-    private SecurityRepository securityRepository;
-    private Set<StatusListener> statusListeners = new HashSet<>();
+    private final ImageService imageService;
+    private final SecurityRepository securityRepository;
+    private final Set<StatusListener> statusListeners = new HashSet<>();
 
-    public SecurityService(SecurityRepository securityRepository, FakeImageService imageService) {
+    public SecurityService(SecurityRepository securityRepository, ImageService imageService) {
         this.securityRepository = securityRepository;
         this.imageService = imageService;
     }
