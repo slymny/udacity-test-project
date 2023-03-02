@@ -2,6 +2,7 @@ package com.cat.data;
 
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
+import lombok.ToString;
 
 import java.lang.reflect.Type;
 import java.util.Set;
@@ -13,6 +14,7 @@ import java.util.prefs.Preferences;
  * memory and writes it to user preferences between app loads. This implementation is
  * intentionally a little hard to use in unit tests, so watch out!
  */
+@ToString
 public class PretendDatabaseSecurityRepositoryImpl implements SecurityRepository{
 
     private Set<Sensor> sensors;
