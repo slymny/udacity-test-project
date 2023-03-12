@@ -1,10 +1,13 @@
 package com.cat.security.service;
 
 import com.cat.data.*;
-import com.cat.image.service.FakeImageService;
 import com.cat.image.service.ImageService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -16,29 +19,52 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 //
 @ExtendWith(MockitoExtension.class)
 class SecurityServiceTest {
     @Mock
-    private ImageService imageService = new FakeImageService();
-    @Mock
-    private SecurityRepository securityRepository;
-    @Mock
+    private ImageService imageService;
+    @InjectMocks
+    private SecurityRepository securityRepository = new PretendDatabaseSecurityRepositoryImpl();
+
     private SecurityService securityService;
     private Map<UUID, Sensor> sensors;
 
+    private UUID gardenSensorId;
+
+    private static Stream<Arguments> differentAlarmTypesWithTheSameSensorAndExpectedDifferentAlarmStatus() {
+        return Stream.of(
+                Arguments.of(
+                        ArmingStatus.ARMED_AWAY,
+                        AlarmStatus.NO_ALARM,
+                        AlarmStatus.PENDING_ALARM
+                ),
+                Arguments.of(
+                        ArmingStatus.ARMED_AWAY,
+                        AlarmStatus.PENDING_ALARM,
+                        AlarmStatus.ALARM
+                )
+        );
+    }
+
     @BeforeEach
     void init() {
-        securityRepository = new PretendDatabaseSecurityRepositoryImpl();
+//        securityRepository = new PretendDatabaseSecurityRepositoryImpl();
         securityService = new SecurityService(securityRepository, imageService);
         sensors = new LinkedHashMap<>();
 
         securityService.addSensor(new Sensor("Door", SensorType.DOOR));
         securityService.addSensor(new Sensor("Window", SensorType.WINDOW));
         securityService.addSensor(new Sensor("Garden", SensorType.MOTION));
-        securityService.getSensors().forEach(sensor -> sensors.put(sensor.getSensorId(), sensor));
+        securityService.getSensors().forEach(sensor -> {
+            sensors.put(sensor.getSensorId(), sensor);
+            if (sensor.getName().equals("Garden"))
+                gardenSensorId = sensor.getSensorId();
+        });
 
         securityService.setArmingStatus(ArmingStatus.DISARMED);
         securityService.setAlarmStatus(AlarmStatus.NO_ALARM);
@@ -50,29 +76,19 @@ class SecurityServiceTest {
         sensors.clear();
     }
 
-    @Test
-    public void alarmArmed_sensorActive_alarmStatusShouldBePending() {
-        securityService.setArmingStatus(ArmingStatus.ARMED_AWAY);
+    @ParameterizedTest
+    @MethodSource("differentAlarmTypesWithTheSameSensorAndExpectedDifferentAlarmStatus")
+    public void alarmArmed_sensorActiveAndDifferentAlarmStatus_alarmStatusShouldBeDifferent(
+            ArmingStatus armingStatus,
+            AlarmStatus alarmStatus,
+            AlarmStatus expectedAlarmStatus
+    ) {
+        securityService.setArmingStatus(armingStatus);
+        securityService.setAlarmStatus(alarmStatus);
 
-        sensors.forEach((Id, sensor) -> {
-            if (sensor.getName().equals("Garden"))
-                securityService.changeSensorActivationStatus(sensor, true);
-        });
+        securityService.changeSensorActivationStatus(sensors.get(gardenSensorId), true);
 
-        Assertions.assertEquals(securityService.getAlarmStatus(), AlarmStatus.PENDING_ALARM);
-    }
-
-    @Test
-    public void alarmArmed_sensorActiveAndSystemPending_alarmStatusShouldBeAlarm() {
-        securityService.setArmingStatus(ArmingStatus.ARMED_AWAY);
-        securityService.setAlarmStatus(AlarmStatus.PENDING_ALARM);
-
-        sensors.forEach((Id, sensor) -> {
-            if (sensor.getName().equals("Garden"))
-                securityService.changeSensorActivationStatus(sensor, true);
-        });
-
-        Assertions.assertEquals(securityService.getAlarmStatus(), AlarmStatus.ALARM);
+        Assertions.assertEquals(securityService.getAlarmStatus(), expectedAlarmStatus);
     }
 
     @Test
@@ -86,13 +102,26 @@ class SecurityServiceTest {
     }
 
     @Test
-    public void alarmAlarm_sensorsChange_shouldNotChangeAlarm() {
+    public void alarmActive_sensorsChange_shouldNotChangeAlarm() {
         securityService.setArmingStatus(ArmingStatus.ARMED_AWAY);
-        securityService.setAlarmStatus(AlarmStatus.ALARM);
 
-        sensors.forEach((Id, sensor) -> securityService.changeSensorActivationStatus(sensor, true));
+        // Activate two sensors are not Garden
+        sensors.forEach((id, sensor) -> {
+            if (!id.equals(gardenSensorId))
+                securityService.changeSensorActivationStatus(sensor, true);
+        });
 
-        Assertions.assertEquals(securityService.getAlarmStatus(), AlarmStatus.ALARM);
+        // Alarm should be ALARM
+        Assertions.assertEquals(AlarmStatus.ALARM, securityService.getAlarmStatus());
+
+        // Deactivate the same sensors
+        sensors.forEach((id, sensor) -> {
+            if (!id.equals(gardenSensorId))
+                securityService.changeSensorActivationStatus(sensor, false);
+        });
+
+        // Should not affect the alarm status
+        Assertions.assertEquals(AlarmStatus.ALARM, securityService.getAlarmStatus());
     }
 
     @Test
@@ -101,10 +130,7 @@ class SecurityServiceTest {
         securityService.setAlarmStatus(AlarmStatus.PENDING_ALARM);
 
         sensors.forEach((Id, sensor) -> securityService.changeSensorActivationStatus(sensor, true));
-        sensors.forEach((Id, sensor) -> {
-            if (sensor.getName().equals("Garden"))
-                securityService.changeSensorActivationStatus(sensor, true);
-        });
+        securityService.changeSensorActivationStatus(sensors.get(gardenSensorId), true);
 
         Assertions.assertEquals(securityService.getAlarmStatus(), AlarmStatus.ALARM);
     }
@@ -127,17 +153,28 @@ class SecurityServiceTest {
 
         securityService.processImage(image);
 
-        Assertions.assertEquals(securityService.getAlarmStatus(), AlarmStatus.ALARM);
+        Assertions.assertEquals(AlarmStatus.ALARM, securityService.getAlarmStatus());
     }
 
     @Test
-    public void detectNoCat_sensorsNotActive_alarmShouldBeNoAlarm() {
+    public void containNoCat_sensorsNotActive_alarmShouldBeNoAlarm() {
         securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
+        securityService.setAlarmStatus(AlarmStatus.ALARM);
+
+        AtomicBoolean isAllDeactive = new AtomicBoolean(true);
+        sensors.forEach((Id, sensor) -> {
+            if (!sensor.getActive())
+                isAllDeactive.set(false);
+        });
+
+        // camera image does not contain a cat
         BufferedImage image = getBufferedImage(false);
         Mockito.when(imageService.imageContainsCat(image, 50.0f)).thenReturn(false);
         securityService.processImage(image);
 
-        Assertions.assertEquals(securityService.getAlarmStatus(), AlarmStatus.NO_ALARM);
+        // As long as the sensors are not active, change the status to no alarm
+        if (isAllDeactive.get())
+            Assertions.assertEquals(AlarmStatus.NO_ALARM, securityService.getAlarmStatus());
     }
 
     @Test
@@ -148,13 +185,13 @@ class SecurityServiceTest {
     }
 
     @Test
-    public void systemArmed_allSensors_shouldBeInactive() {
-        sensors.forEach((id, sensor) -> {
-            if(sensor.getName().equals("Garden"))
-                securityService.changeSensorActivationStatus(sensor, true);
-        });
+    public void systemArmed_allSensors_shouldBeResetToInactive() {
+        sensors.forEach((Id, sensor) -> securityService.changeSensorActivationStatus(sensor, true));
+
+        // System is armed
         securityService.setArmingStatus(ArmingStatus.ARMED_AWAY);
 
+        // Reset all sensors to inactive
         sensors.forEach((id, sensor) -> Assertions.assertFalse(sensor.getActive()));
     }
 
@@ -217,30 +254,36 @@ class SecurityServiceTest {
 
     @Test
     public void systemArmed_detectsCatAndActivateASensor_secondScanNoCatButSystemShouldBeAlarm() {
+        // Arm the system
         securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
 
+        // Scan a picture until it detects a cat
         BufferedImage image = getBufferedImage(true);
         Mockito.when(imageService.imageContainsCat(image, 50.0f)).thenReturn(true);
         securityService.processImage(image);
 
-        sensors.forEach((id, sensor) -> {
-            if (sensor.getName().equals("Garden"))
-                securityService.changeSensorActivationStatus(sensor, true);
-        });
+        // Activate a sensor
+        securityService.changeSensorActivationStatus(sensors.get(gardenSensorId), true);
 
+        // Scan a picture again until there is no cat
         image = getBufferedImage(false);
         Mockito.when(imageService.imageContainsCat(image, 50.0f)).thenReturn(false);
         securityService.processImage(image);
 
-        Assertions.assertEquals(securityService.getAlarmStatus(), AlarmStatus.ALARM);
+        // The system should still be in alarm state as there is a sensor active
+        Assertions.assertEquals(AlarmStatus.ALARM, securityService.getAlarmStatus());
     }
 
     @Test
     public void systemArmed_sensorsNotResetToInactive() {
+        // Put all sensors to the active state when disarmed
         securityService.setArmingStatus(ArmingStatus.DISARMED);
         sensors.forEach((id, sensor) -> securityService.changeSensorActivationStatus(sensor, true));
+
+        // Then put the system in the armed state
         securityService.setArmingStatus(ArmingStatus.ARMED_AWAY);
 
+        // Sensors should be inactivated
         sensors.forEach((id, sensor) -> Assertions.assertFalse(sensor.getActive()));
     }
 

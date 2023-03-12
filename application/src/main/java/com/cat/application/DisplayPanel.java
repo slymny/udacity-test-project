@@ -2,7 +2,7 @@ package com.cat.application;
 
 import com.cat.security.service.StatusListener;
 import com.cat.data.AlarmStatus;
-import com.cat.image.service.StyleService;
+import com.cat.security.service.StyleService;
 import com.cat.security.service.SecurityService;
 import net.miginfocom.swing.MigLayout;
 

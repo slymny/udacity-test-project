@@ -5,10 +5,10 @@ import com.cat.data.ArmingStatus;
 import com.cat.data.SecurityRepository;
 import com.cat.data.Sensor;
 import com.cat.image.service.ImageService;
-import lombok.ToString;
 
 import java.awt.image.BufferedImage;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Service that receives information about changes to the security system. Responsible for
@@ -16,18 +16,18 @@ import java.util.*;
  * This is the class that should contain most of the business logic for our system, and it is the
  * class you will be writing unit tests for.
  */
-@ToString
 public class SecurityService {
 
     private final ImageService imageService;
     private final SecurityRepository securityRepository;
     private final Set<StatusListener> statusListeners = new HashSet<>();
-    private final Map<UUID, Sensor> sensors = new LinkedHashMap<>();
+    private final List<Sensor> sensors;
     private Boolean isCatDetected = false;
 
     public SecurityService(SecurityRepository securityRepository, ImageService imageService) {
         this.securityRepository = securityRepository;
         this.imageService = imageService;
+        sensors = new ArrayList<>(securityRepository.getSensors());
     }
 
     /**
@@ -38,14 +38,14 @@ public class SecurityService {
      */
     private void catDetected(Boolean cat) {
         List<Sensor> activeSensors = getActiveSensors();
+
         if (cat && getArmingStatus() == ArmingStatus.ARMED_HOME) {
             setAlarmStatus(AlarmStatus.ALARM);
-        } else if (activeSensors.size() > 0) {
-            return;
-        } else {
+        } else if (activeSensors.isEmpty()) {
             setAlarmStatus(AlarmStatus.NO_ALARM);
+        } else {
+            return;
         }
-
         statusListeners.forEach(sl -> sl.catDetected(cat));
     }
 
@@ -84,19 +84,13 @@ public class SecurityService {
         if (activeSensors.size() > 0)
             return;
 
-        switch (securityRepository.getAlarmStatus()) {
-            case PENDING_ALARM -> setAlarmStatus(AlarmStatus.NO_ALARM);
-            case ALARM -> setAlarmStatus(AlarmStatus.PENDING_ALARM);
+        if (Objects.requireNonNull(securityRepository.getAlarmStatus()) == AlarmStatus.PENDING_ALARM) {
+            setAlarmStatus(AlarmStatus.NO_ALARM);
         }
     }
 
     private List<Sensor> getActiveSensors() {
-        List<Sensor> activeSensors = new ArrayList<>();
-        sensors.forEach((id, s) -> {
-            if (s.getActive())
-                activeSensors.add(s);
-        });
-        return activeSensors;
+        return sensors.stream().filter(Sensor::getActive).collect(Collectors.toList());
     }
 
     /**
@@ -116,7 +110,6 @@ public class SecurityService {
             sensor.setActive(active);
             handleSensorDeactivated();
         }
-
         securityRepository.updateSensor(sensor);
     }
 
@@ -150,12 +143,12 @@ public class SecurityService {
     }
 
     public void addSensor(Sensor sensor) {
-        sensors.put(sensor.getSensorId(), sensor);
+        sensors.add(sensor);
         securityRepository.addSensor(sensor);
     }
 
     public void removeSensor(Sensor sensor) {
-        sensors.remove(sensor.getSensorId());
+        sensors.remove(sensor);
         securityRepository.removeSensor(sensor);
     }
 
@@ -172,10 +165,11 @@ public class SecurityService {
     public void setArmingStatus(ArmingStatus armingStatus) {
         if (armingStatus == ArmingStatus.DISARMED) {
             setAlarmStatus(AlarmStatus.NO_ALARM);
-        } else if (isCatDetected) {
-            setAlarmStatus(AlarmStatus.ALARM);
         } else {
-            sensors.forEach((id, sensor) -> changeSensorActivationStatus(sensor, false));
+            sensors.forEach(sensor -> changeSensorActivationStatus(sensor, false));
+        }
+        if (isCatDetected && armingStatus == ArmingStatus.ARMED_HOME) {
+            setAlarmStatus(AlarmStatus.ALARM);
         }
         securityRepository.setArmingStatus(armingStatus);
     }

@@ -2,7 +2,6 @@ package com.cat.data;
 
 
 import com.google.common.collect.ComparisonChain;
-import lombok.ToString;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -10,7 +9,6 @@ import java.util.UUID;
 /**
  * Sensor POJO. Needs to know how to sort itself for display purposes.
  */
-@ToString
 public class Sensor implements Comparable<Sensor> {
     private UUID sensorId;
     private String name;
@@ -22,6 +20,10 @@ public class Sensor implements Comparable<Sensor> {
         this.sensorType = sensorType;
         this.sensorId = UUID.randomUUID();
         this.active = Boolean.FALSE;
+    }
+
+    public Sensor() {
+
     }
 
     @Override
@@ -76,5 +78,13 @@ public class Sensor implements Comparable<Sensor> {
                 .compare(this.sensorType.toString(), o.sensorType.toString())
                 .compare(this.sensorId, o.sensorId)
                 .result();
+    }
+
+    @Override
+    public String toString() {
+        return "Sensor{" +
+                "name='" + name + '\'' +
+                ", active=" + active +
+                '}';
     }
 }
