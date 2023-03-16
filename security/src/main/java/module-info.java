@@ -6,4 +6,5 @@ module security {
     requires com.google.common;
     requires com.google.gson;
     requires java.prefs;
+    opens com.cat.data to com.google.gson;
 }

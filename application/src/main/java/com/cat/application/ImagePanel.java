@@ -2,7 +2,7 @@ package com.cat.application;
 
 import com.cat.security.service.StatusListener;
 import com.cat.data.AlarmStatus;
-import com.cat.image.service.StyleService;
+import com.cat.security.service.StyleService;
 import com.cat.security.service.SecurityService;
 import net.miginfocom.swing.MigLayout;
 
@@ -62,9 +62,7 @@ public class ImagePanel extends JPanel implements StatusListener {
 
         //button that sends the image to the image service
         JButton scanPictureButton = new JButton("Scan Picture");
-        scanPictureButton.addActionListener(e -> {
-            securityService.processImage(currentCameraImage);
-        });
+        scanPictureButton.addActionListener(e -> securityService.processImage(currentCameraImage));
 
         add(cameraHeader, "span 3, wrap");
         add(cameraLabel, "span 3, wrap");
