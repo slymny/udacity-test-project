@@ -39,12 +39,8 @@
         <module>application</module>
     </modules>
 
-    <dependencyManagement>
-        <dependencies>
-        </dependencies>
-    </dependencyManagement>
-
     <dependencies>
+
     </dependencies>
 
     <build>
@@ -66,7 +62,12 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.0.0-M8</version>
+                    <version>3.0.0-M9</version>
+                    <configuration>
+                        <argLine>
+                            --add-opens security/com.cat.security.service=ALL-UNNAMED
+                        </argLine>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <artifactId>maven-jar-plugin</artifactId>
@@ -78,12 +79,12 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-deploy-plugin</artifactId>
-                    <version>3.0.0</version>
+                    <version>3.1.0</version>
                 </plugin>
                 <!-- site lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#site_Lifecycle -->
                 <plugin>
                     <artifactId>maven-site-plugin</artifactId>
-                    <version>4.0.0-M4</version>
+                    <version>4.0.0-M5</version>
                 </plugin>
                 <plugin>
                     <artifactId>maven-project-info-reports-plugin</artifactId>
@@ -92,4 +93,14 @@
             </plugins>
         </pluginManagement>
     </build>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>4.7.3.2</version>
+            </plugin>
+        </plugins>
+    </reporting>
 </project>

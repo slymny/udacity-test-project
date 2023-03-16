@@ -22,6 +22,10 @@ public class Sensor implements Comparable<Sensor> {
         this.active = Boolean.FALSE;
     }
 
+    public Sensor() {
+
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -74,5 +78,13 @@ public class Sensor implements Comparable<Sensor> {
                 .compare(this.sensorType.toString(), o.sensorType.toString())
                 .compare(this.sensorId, o.sensorId)
                 .result();
+    }
+
+    @Override
+    public String toString() {
+        return "Sensor{" +
+                "name='" + name + '\'' +
+                ", active=" + active +
+                '}';
     }
 }
